@@ -1,0 +1,209 @@
+-- creating a database
+
+create database capstone_project1;
+select * from amazon;
+
+-- add a column (timeofday) to the table amazon
+Alter TABLE amazon add column timeofday varchar(10);
+
+-- removes the safe update mode (disable)
+set sql_safe_updates=0;
+
+-- set values to the timeofday
+update amazon set timeofday=case when hour(Time) between 6 and 11 then 'Morning'
+when hour(time) between 12 and 16 then 'Afternoon'
+else 'Evening'
+end;
+
+-- add a column 'dayname' to amazon table
+alter table amazon add column dayname varchar(10);
+
+-- set values to dayname column
+update amazon set dayname= CASE
+    WHEN WEEKDAY(date) = 0 THEN 'Mon'
+    WHEN WEEKDAY(date) = 1 THEN 'Tue'
+    WHEN WEEKDAY(date) = 2 THEN 'Wed'
+    WHEN WEEKDAY(date) = 3 THEN 'Thu'
+    WHEN WEEKDAY(date) = 4 THEN 'Fri'
+    WHEN WEEKDAY(date) = 5 THEN 'Sat'
+    WHEN WEEKDAY(date) = 6 THEN 'Sun'
+END;
+
+
+-- add a column 'monthname' to amazon table
+alter table amazon add column monthname varchar(10);
+
+-- set values to monthname column
+update amazon set monthname=date_format(DATE,'%b');
+
+
+-- 1.What is the count of distinct cities in the dataset?
+select   count(distinct city) as count from amazon;
+-- 3 distinct cities are there in dataset
+
+-- 2.For each branch, what is the corresponding city
+select branch,city from amazon 
+group by branch,city
+ order by branch;
+ -- there are 3 branches(A,B,C) and correspoding cities are (YANGON, MANDALAY,NAYPYITAW)
+
+-- What is the count of distinct product lines in the dataset?
+select count(distinct `product line`) from amazon;
+-- 	there are 6 product lines in the data sets 
+
+-- 4.Which payment method occurs most frequently?
+select max(payment) from amazon;
+-- ewallet payment is high
+
+-- 5.Which product line has the highest sales?
+alter table amazon add column sales_amount integer;
+update amazon set sales_amount=`unit price`*quantity;
+select `product line`,sum(sales_amount) as total_amount from amazon 
+group by `product line` 
+order by total_amount desc limit 1;
+-- food and beverages product line is highest sales
+
+-- 6.How much revenue is generated each month?
+select monthname,sum(sales_amount) as revenue
+ from amazon 
+ group by monthname 
+ order by monthname ;
+ -- 3 months (jan,feb,mar) of revenues are 110757,92596,104247
+
+-- 7.In which month did the cost of goods sold reach its peak?
+select monthname,sum(sales_amount) as total_cost_of_sold 
+from amazon
+ group by monthname
+ order by total_cost_of_sold desc limit 1;
+ -- jan - 110757 is the cost of goods sold reach its peak
+ 
+
+-- 8. which product line generated the highest revenue?
+select `product line`, sum(`unit price`*quantity) as revenue 
+from amazon 
+group by `product line` 
+order by revenue desc limit 1;
+-- food and beherages product line is generated the highest revenue(53471.28)
+
+-- 9. in which city was the highest revenue recorded?
+select city from (select city, sum(`unit price`*quantity) as revenue 
+from amazon 
+group by city
+ order by revenue desc limit 1)as alias;
+ -- naypyitaw is the highest revenue recorded
+
+-- 10.which product line incurred the highest value added tax?
+select `product line`,sum(`tax 5%`) as high
+ from amazon 
+ group by `product line` 
+ order by high desc limit 1;
+ -- food and beverages product line incurred highest value added tax (2673.56)
+
+-- 11.for each product line, add a column indicating "good" if its sales are above average ,otherwise "bad".
+
+select `product line`,sum(quantity*`unit price`) as sales ,
+ case 
+when sum(quantity*`unit price`)>( select avg(sales) from(select `product line`,sum(quantity*`unit price`) as sales from amazon group by `product line`)as alias ) 
+then 'good'
+else 'bad'
+end as performance
+from amazon group by `product line`;
+-- only health and beauty product line of performance is bad other product lines are good
+
+
+select * from amazon;
+-- 12.identity the branch that exceeded the average number of products sold.
+select branch,sum(quantity) 
+from amazon
+ group by branch
+ having sum(quantity) >(select avg(total) from (select branch,sum(quantity) as total from amazon group by branch) as alias);
+ -- branch A is exceeded the average no of products sold.
+ 
+ 
+ -- 13.which product line is most frequently associated with each gender?
+  SELECT 
+  gender,
+  `product line`,
+  frequency
+FROM (
+  SELECT 
+    gender,
+    `product line`,
+    COUNT(*) as frequency,
+    ROW_NUMBER() OVER (PARTITION BY gender ORDER BY COUNT(*) DESC) as row_num
+  FROM 
+    amazon
+  GROUP BY 
+    gender, `product line`
+) subquery
+WHERE row_num = 1;
+-- female gender have more fashion accessories product line and male gender have more health and beauty product line .
+
+-- 14. calculating the average rating for each product line
+select `Product line`,round(avg(rating),2) as average_rating
+from amazon
+group by `product line`
+order by average_rating desc;
+-- product line food and beverages is highest average rating.
+
+
+-- 15.count the sales occurances for each time of day on every weekday
+select * from amazon;
+select timeofday,count(*) as cnt from amazon group by timeofday;
+-- doubt
+
+-- 16.identify the customer type contributing the highest revenue
+select `customer type` , sum(sales_amount)as highest_revenue from amazon group by `customer type` order by highest_revenue limit 1;
+-- normal customer type is highest revenue
+
+-- 17.determine the city with the highest VAT percentage
+select city,max(`tax 5%`) as highest_vat from amazon group by city order by highest_vat desc limit 1;
+-- naypyitaw is highest VAT
+
+-- 18.identify the customer type with the highest VAT percentage
+select `customer type`,max(`tax 5%`) as highest_vat from amazon group by `customer type` order by highest_vat desc limit 1;
+-- member customer type is highest VAT
+
+-- 19. what is the count of distinct customer type in the dataset?
+select count(distinct `customer type`) from amazon;
+ -- there are 2 customer type  (member, normal)
+
+-- 20. what is the count of distinct payment methods in the dataset
+select count(distinct payment) as cnt from amazon;
+ -- there are 3 payments ( Ewallet, cash, credit card)
+
+-- 21.whict customer type occurs most frequently?
+select `customer type` ,count(*) as cnt from amazon group by `customer type` order by cnt desc limit 1;
+-- member customer type is occur 501 times
+
+-- 22.identify the customer type with the highest purchase frequency?
+select `customer type`, count(*) as cnt from amazon group by `customer type` order by cnt desc limit 1;
+-- member customer type is occur 501 times( highest purchase frequency)
+
+-- 23.determine the predominent gender amaong customers.
+select gender,count(*) as cnt from amazon group by gender order by cnt desc limit 1;
+-- female gender is the predominent gender(501 times) among customers
+
+-- 24.examine the distribution of genders within each branch
+select branch,gender,count(*) as cnt from amazon group by branch,gender order by cnt desc;
+-- above result--- branch A gender male have highest distribution.
+
+
+-- 25.identify the time of day when customers provide the most ratings
+select timeofday,round(sum(rating),2) as most_rating from amazon group by timeofday order by most_rating desc limit 1;
+-- afternoon is highest rating (3179 times)
+
+-- 26.determine the timeofday with the highest customer ratings for each branch
+select timeofday,branch,round(sum(rating),2) as most from amazon group by timeofday,branch order by most desc limit 1;
+-- afternoon of A branch is highest customer rating for each branch
+
+-- 27.identify the day of the week with the highest average ratings.
+select * from amazon;
+select dayofweek(date) as day_of_week,avg(rating) as most_avg_rating from amazon group by DAYOFWEEK(date) order by most_avg_rating desc limit 1;
+select dayname ,avg(rating) as most_avg_rating from amazon group by dayname order by most_avg_rating desc limit 1;
+-- monday is most average rating.
+
+-- 28.determine the day of the week with the highest average ratings for each branch
+select dayofweek(date) as day_of_week,branch,avg(rating) as most_avg_rating from amazon group by DAYOFWEEK(date),branch order by most_avg_rating desc limit 1;
+select dayname ,branch,avg(rating) as most_avg_rating from amazon group by dayname,branch order by most_avg_rating desc limit 1;
+-- monday of B branch is most average rating. 
